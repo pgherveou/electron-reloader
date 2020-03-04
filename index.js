@@ -1,4 +1,5 @@
 'use strict';
+const inspector = require("inspector");
 const {inspect} = require('util');
 const path = require('path');
 const electron = require('electron');
@@ -76,6 +77,7 @@ module.exports = (moduleObject, options) => {
 			// handler being called multiple times before the original instance exits.
 			if (!isRelaunching) {
 				electron.app.relaunch();
+				inspector.close();
 				electron.app.exit(0);
 			}
 
