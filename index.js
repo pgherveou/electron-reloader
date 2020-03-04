@@ -1,19 +1,20 @@
-'use strict';
-const {inspect} = require('util');
-const path = require('path');
-const electron = require('electron');
-const chokidar = require('chokidar');
-const isDev = require('electron-is-dev');
-const dateTime = require('date-time');
-const chalk = require('chalk');
-const findUp = require('find-up');
+"use strict";
+const inspector = require("inspector");
+const { inspect } = require("util");
+const path = require("path");
+const electron = require("electron");
+const chokidar = require("chokidar");
+const isDev = require("electron-is-dev");
+const dateTime = require("date-time");
+const chalk = require("chalk");
+const findUp = require("find-up");
 
 function getMainProcessPaths(topModuleObject, cwd) {
 	const paths = new Set([topModuleObject.filename]);
 
 	const getPaths = moduleObject => {
 		for (const child of moduleObject.children) {
-			if (path.relative(cwd, child.filename).includes('node_modules')) {
+			if (path.relative(cwd, child.filename).includes("node_modules")) {
 				continue;
 			}
 
@@ -35,7 +36,7 @@ module.exports = (moduleObject, options) => {
 	}
 
 	if (!moduleObject) {
-		throw new Error('You have to pass the `module` object');
+		throw new Error("You have to pass the `module` object");
 	}
 
 	options = {
@@ -44,8 +45,12 @@ module.exports = (moduleObject, options) => {
 	};
 
 	const mainProcessDirectory = path.dirname(moduleObject.filename);
-	const packageDirectory = findUp.sync('package.json', {cwd: mainProcessDirectory});
-	const cwd = packageDirectory ? path.dirname(packageDirectory) : mainProcessDirectory;
+	const packageDirectory = findUp.sync("package.json", {
+		cwd: mainProcessDirectory
+	});
+	const cwd = packageDirectory
+		? path.dirname(packageDirectory)
+		: mainProcessDirectory;
 	const mainProcessPaths = getMainProcessPaths(moduleObject, cwd);
 	const watchPaths = options.watchRenderer ? cwd : [...mainProcessPaths];
 	let isRelaunching = false;
@@ -55,27 +60,41 @@ module.exports = (moduleObject, options) => {
 		disableGlobbing: true,
 		ignored: [
 			/(^|[/\\])\../, // Dotfiles
-			'node_modules',
-			'**/*.map'
+			"node_modules",
+			"**/*.map"
 		].concat(options.ignore)
 	});
 
 	if (options.debug) {
-		watcher.on('ready', () => {
-			console.log('Watched paths:', inspect(watcher.getWatched(), {compact: false, colors: true}));
+		watcher.on("ready", () => {
+			console.log(
+				"Watched paths:",
+				inspect(watcher.getWatched(), { compact: false, colors: true })
+			);
 		});
 	}
 
-	watcher.on('change', filePath => {
+	watcher.on("change", filePath => {
 		if (options.debug) {
-			console.log('File changed:', chalk.bold(filePath), chalk.dim(`(${dateTime().split(' ')[1]})`));
+			console.log(
+				"File changed:",
+				chalk.bold(filePath),
+				chalk.dim(`(${dateTime().split(" ")[1]})`)
+			);
 		}
 
 		if (mainProcessPaths.has(path.join(cwd, filePath))) {
 			// Prevent multiple instances of Electron from being started due to the change
 			// handler being called multiple times before the original instance exits.
 			if (!isRelaunching) {
-				electron.app.relaunch();
+				electron.app.relaunch({
+					args: process.argv
+						// skip first
+						.slice(1)
+						// replace --inspect-brk with --inspect
+						.map(arg => (arg.includes("--inspect") ? "--inspect" : arg))
+				});
+				inspector.close();
 				electron.app.exit(0);
 			}
 
